@@ -21,11 +21,14 @@ class MLP(nn.Module):
         return self.mlp(x)
 
 class BYOL(nn.Module):
-    def __init__(self, backbone_net: nn.Module, repre_dim: int,
+    def __init__(self, backbone_net: nn.Module,
                  project_dim: int, project_hidden: int):
         super().__init__()
         
         self.backbone_net = backbone_net
+        repre_dim = self.backbone_net.fc.in_features
+        backbone_net.fc = nn.Identity()
+        
         self.projector = MLP(repre_dim, project_dim, project_hidden)
         
         # Define encoders

@@ -28,7 +28,7 @@ class Linear_Protocoler(object):
     def knn_accuracy(self, train_dl, test_dl, n_neighbors: int = 8):
         # Turn off last layer
         last_layer_saved = deepcopy(self.classifier.fc)
-        self.classifier.fc = nn.Flatten()
+        self.classifier.fc = nn.Identity()
         
         # extract train
         X_train = ()
