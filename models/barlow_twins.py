@@ -3,6 +3,8 @@ from typing import Union
 import torch
 import torch.nn as nn
 
+from .utils import MLP
+
 class BarlowTwins(nn.Module):
     """
     Code from https://github.com/facebookresearch/barlowtwins
@@ -18,17 +20,7 @@ class BarlowTwins(nn.Module):
         repre_dim = self.backbone_net.fc.in_features
         backbone_net.fc = nn.Identity()
         
-        if isinstance(projector_hidden, int):
-            projector_hidden = (projector_hidden,)
-        
-        # Projector
-        projector = [nn.Linear(repre_dim, projector_hidden[0], bias=False)]
-        for i in range(len(projector_hidden) - 1):
-            projector.extend([nn.BatchNorm1d(projector_hidden[i]),
-                              nn.ReLU(inplace=True),
-                              nn.Linear(projector_hidden[i], projector_hidden[i+1], bias=False)])
-            
-        self.projector = nn.Sequential(*projector)
+        self.projector = MLP(repre_dim, projector_hidden, bias = False)
 
         # Normalization layer for representations z1 + z2
         self.bn = nn.BatchNorm1d(projector_hidden[-1], affine=False)
