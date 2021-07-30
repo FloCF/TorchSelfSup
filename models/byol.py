@@ -20,14 +20,14 @@ class BYOL(nn.Module):
         backbone_net.fc = nn.Identity()
         
         # Define encoders
-        self.encoder_online = nn.Sequential(self.backbone_net, MLP(repre_dim, projector_hiddenprojector_hidden))
+        self.encoder_online = nn.Sequential(self.backbone_net, MLP(repre_dim, projector_hidden))
         self.encoder_target = copy.deepcopy(self.encoder_online)
         # Turn of requires grad
         for p in self.encoder_target.parameters():
             p.requires_grad = False
             
         # Define online predictor
-        if predict_hiddens:
+        if predictor_hidden:
             self.predictor_online = MLP(projector_hidden[-1], predictor_hidden)
         else: # use same as projection mlp
             self.predictor_online = MLP(projector_hidden[-1], projector_hidden)

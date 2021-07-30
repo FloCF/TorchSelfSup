@@ -25,24 +25,24 @@ class BarlowTwins(nn.Module):
         # Normalization layer for representations z1 + z2
         self.bn = nn.BatchNorm1d(projector_hidden[-1], affine=False)
     
-    def off_diagonal(self, x):
+    def _off_diagonal(self, x):
         # return a flattened view of the off-diagonal elements of a square matrix
         n, m = x.shape
         assert n == m
         return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
     
+    def loss_fn(self, z1, z2, λ):
+        # empirical cross-correlation matrix
+        c = self.bn(z1).T @ self.bn(z2)
+        c.div_(z1.size(0))
+        
+        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
+        off_diag = self._off_diagonal(c).pow_(2).sum()
+        
+        return on_diag + λ * off_diag
     
     def forward(self, x1, x2):
-        bz = x1.size(0)
-        
         z1 = self.projector(self.backbone_net(x1))
         z2 = self.projector(self.backbone_net(x2))
 
-        # empirical cross-correlation matrix
-        c = self.bn(z1).T @ self.bn(z2)
-        c.div_(bz)
-        
-        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
-        off_diag = self.off_diagonal(c).pow_(2).sum()
-        loss = on_diag + self.lambd * off_diag
-        return loss
+        return self.loss_fn(z1, z2, self.lambd)

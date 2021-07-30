@@ -7,9 +7,9 @@
     - MoCo-v2,
 * **Non-Contrastive:**
     - BYOL (finished),
-    - SimSiam (coming next),
+    - SimSiam (finished),
     - SwAV,
-    - BarlowTwins (coming next),
+    - BarlowTwins (finished),
     - ...
     
 I want to focus on method that also work in a comparably small batch size setting. That's why SimCLR is not part of the list.
