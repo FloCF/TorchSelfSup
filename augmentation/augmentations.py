@@ -18,3 +18,13 @@ class SimSiam_augmentaions(TwoTransform):
                                    normalize=normalize)
         
         super().__init__(trans1)
+        
+        
+class VICReg_augmentaions(TwoTransform):
+    def __init__(self, image_size, normalize=IMAGENET_NORM):
+        trans1 = simclr_transforms(image_size,
+                                   p_blur = 0.5,
+                                   p_solarize = 0.1,
+                                   normalize=normalize)
+        
+        super().__init__(trans1)
