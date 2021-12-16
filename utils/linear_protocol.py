@@ -4,9 +4,10 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.optim as opt
+import torch.nn.functional as F
 
 class Linear_Protocoler(object):
-    def __init__(self, encoder, repre_dim: int, device : str = 'cpu'):
+    def __init__(self, encoder, repre_dim: int, device : str = 'cuda'):
         self.device = device
         
         # Copy net
@@ -19,7 +20,7 @@ class Linear_Protocoler(object):
         
     def knn_accuracy(self, train_dl, test_dl, knn_k: int = 200, knn_t: float=0.1):        
         # get classes
-        classes = len(train_dl.dataset.classes)
+        num_classes = len(train_dl.dataset.classes)
         
         # extract train
         train_features = ()
@@ -33,14 +34,15 @@ class Linear_Protocoler(object):
 
         # Test
         total_top1, total_num = 0., 0
-        for x,y in test_dl:
-            features = self.encoder(x.to(self.device))
+        for x,target in test_dl:
+            x, target = x.to(self.device), target.to(self.device)
+            features = self.encoder(x)
             features = F.normalize(features, dim=1)
             
             # Get knn predictions
-            pred_labels = knn_predict(features, train_features, train_labels, classes, knn_k, knn_t)
+            pred_labels = knn_predict(features, train_features, train_labels, num_classes, knn_k, knn_t)
             
-            total_num += data.size(0)
+            total_num += x.size(0)
             total_top1 += (pred_labels[:, 0] == target).float().sum().item()
         
         return total_top1 / total_num * 100
@@ -49,7 +51,7 @@ class Linear_Protocoler(object):
         # get hyperparams
         num_epochs, lr, milestones = eval_params['num_epochs'], eval_params['lr'], eval_params['milestones']
         # get classes
-        classes = len(dataloader.dataset.classes)
+        num_classes = len(dataloader.dataset.classes)
         
         # Add classification layer
         self.classifier = nn.Sequential(self.encoder, nn.Linear(self.repre_dim, num_classes))

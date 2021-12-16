@@ -1,6 +1,7 @@
 from os import path
 import time
 
+import torch
 from torch.optim import lr_scheduler
 
 from optimizer import LARS
@@ -12,8 +13,8 @@ def cifar10_trainer(save_root, model, ssl_data, optim_params, train_params,
     # Extract device
     device = next(model.parameters()).device
     # Init
-    eval_acc = {'lin': [], 'knn': []}
     loss_hist = []
+    eval_acc = {'lin': [], 'knn': []}
     # Define optimizer
     optimizer = LARS(model.parameters(), **optim_params)
     # Define scheduler for warmup
@@ -23,16 +24,16 @@ def cifar10_trainer(save_root, model, ssl_data, optim_params, train_params,
     train_params['epoch_start'], saved_data = check_existing_model(save_root, device)
     # Extract data
     if saved_data:
-        barlow_twins.load_state_dict(saved_data['model'])
+        model.load_state_dict(saved_data['model'])
         optimizer.load_state_dict(saved_data['optim'])
-        if epoch_start >= train_params['warmup_epchs']:
+        if train_params['epoch_start'] >= train_params['warmup_epchs']:
             iters_left = (train_params['num_epochs']-train_params['warmup_epchs'])*len(ssl_data.train_dl)
             scheduler = lr_scheduler.CosineAnnealingLR(optimizer,
                                                        iters_left,
                                                        eta_min=train_params['eta_min'])
         scheduler.load_state_dict(saved_data['sched'])
-        eval_acc = saved_data['eval_acc']
         loss_hist = saved_data['loss_hist']
+        eval_acc = saved_data['eval_acc']
         
     if scheduler is None:
         # Define scheduler for warmup
@@ -74,17 +75,18 @@ def cifar10_trainer(save_root, model, ssl_data, optim_params, train_params,
         # Run evaluation
         if (epoch+1) in eval_params['evaluate_at']:
             # Linear protocol
-            evaluator = Linear_Protocoler(model.backbone_net, repre_dim=model.repre_dim)
+            evaluator = Linear_Protocoler(model.backbone_net, repre_dim=model.repre_dim, device=device)
             # knn accuracy
             eval_acc['knn'].append(evaluator.knn_accuracy(ssl_data.train_eval_dl, ssl_data.test_dl))
-            print(f'KNN Accuracy after epoch {epoch}: {eval_acc["knn"][-1]}')
             # linear protocol
             evaluator.train(ssl_data.train_eval_dl, eval_params)
             eval_acc['lin'].append(evaluator.linear_accuracy(ssl_data.test_dl))
-                        
+            # print
             print(f'Accuracy after epoch {epoch}: KNN:{eval_acc["knn"][-1]}, Linear: {eval_acc["lin"][-1]}')
         
-            torch.save({'model':barlow_twins.state_dict(),
+            torch.save({'model': model.state_dict(),
                         'optim': optimizer.state_dict(),
-                        'sched': scheduler.state_dict()},
+                        'sched': scheduler.state_dict(),
+                        'loss_hist': loss_hist,
+                        'eval_acc': eval_acc},
                        path.join(save_root, f'epoch_{epoch+1:03}.tar'))
