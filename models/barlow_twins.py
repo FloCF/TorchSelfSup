@@ -17,10 +17,10 @@ class BarlowTwins(nn.Module):
         self.lambd = λ
         
         self.backbone_net = backbone_net
-        repre_dim = self.backbone_net.fc.in_features
+        self.repre_dim = self.backbone_net.fc.in_features
         backbone_net.fc = nn.Identity()
         
-        self.projector = MLP(repre_dim, projector_hidden, bias = False)
+        self.projector = MLP(self.repre_dim, projector_hidden, bias = False)
 
         # Normalization layer for representations z1 + z2
         self.bn = nn.BatchNorm1d(projector_hidden[-1], affine=False)

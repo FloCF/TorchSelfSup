@@ -1,64 +1,62 @@
 from copy import deepcopy
 from typing import Optional
 
-from sklearn.neighbors import KNeighborsClassifier
-
 import torch
 import torch.nn as nn
 import torch.optim as opt
 
 class Linear_Protocoler(object):
-    def __init__(self, backbone_net, num_classes: int = 10, out_dim: Optional[int] = None, device : str = 'cpu'):
+    def __init__(self, encoder, repre_dim: int, device : str = 'cpu'):
         self.device = device
+        
         # Copy net
-        self.classifier = deepcopy(backbone_net)
+        self.encoder = deepcopy(encoder)
         # Turn off gradients
-        for p in self.classifier.parameters():
-            p.requires_grad = False
-        # get out dimension
-        if out_dim:
-            out_dim = out_dim
-        else:
-            out_dim = p.shape[0]
-        # Add classification layer
-        self.classifier.fc = nn.Sequential(nn.Linear(out_dim, num_classes))
-        # Send to device
-        self.classifier = self.classifier.to(self.device)
-    
-    def knn_accuracy(self, train_dl, test_dl, n_neighbors: int = 8):
-        # Turn off last layer
-        last_layer_saved = deepcopy(self.classifier.fc)
-        self.classifier.fc = nn.Identity()
+        for p in self.encoder.parameters():
+            p.requires_grad = False    
+        
+        self.repre_dim = repre_dim
+        
+    def knn_accuracy(self, train_dl, test_dl, knn_k: int = 200, knn_t: float=0.1):        
+        # get classes
+        classes = len(train_dl.dataset.classes)
         
         # extract train
-        X_train = ()
-        Y_train = ()
-        for x,y in train_dl:
-            X_train += (self.classifier(x.to(self.device)).detach(),)
-            Y_train += (y,)
-        X_train = torch.cat(X_train).cpu().numpy()
-        Y_train = torch.cat(Y_train).cpu().numpy()
+        train_features = ()
+        train_labels = ()
+        for x,labels in train_dl:
+            feats = self.encoder(x.to(self.device))
+            train_features += (F.normalize(feats, dim=1),)
+            train_labels += (labels,)
+        train_features = torch.cat(train_features).t().contiguous()
+        train_labels = torch.cat(train_labels).to(self.device)
 
-        # extract test
-        X_test = ()
-        Y_test = ()
+        # Test
+        total_top1, total_num = 0., 0
         for x,y in test_dl:
-            X_test += (self.classifier(x.to(self.device)).detach(),)
-            Y_test += (y,)
-        X_test = torch.cat(X_test).cpu().numpy()
-        Y_test = torch.cat(Y_test).cpu().numpy()
+            features = self.encoder(x.to(self.device))
+            features = F.normalize(features, dim=1)
+            
+            # Get knn predictions
+            pred_labels = knn_predict(features, train_features, train_labels, classes, knn_k, knn_t)
+            
+            total_num += data.size(0)
+            total_top1 += (pred_labels[:, 0] == target).float().sum().item()
         
-        # Restore last layer
-        self.classifier.fc = last_layer_saved
-        
-        # Run K- NearestNeighbor
-        neigh = KNeighborsClassifier(n_neighbors=n_neighbors)
-        neigh.fit(X_train, Y_train)
-        preds = neigh.predict(X_test)
-        
-        return sum(preds==Y_test)/len(preds)
+        return total_top1 / total_num * 100
     
-    def train(self, dataloader, num_epochs, lr : float = 1e-3, milestones : Optional[list] = None):
+    def train(self, dataloader, eval_params):
+        # get hyperparams
+        num_epochs, lr, milestones = eval_params['num_epochs'], eval_params['lr'], eval_params['milestones']
+        # get classes
+        classes = len(dataloader.dataset.classes)
+        
+        # Add classification layer
+        self.classifier = nn.Sequential(self.encoder, nn.Linear(self.repre_dim, num_classes))
+        
+        # Send to device
+        self.classifier = self.classifier.to(self.device)
+        
         # Define optimizer
         optimizer = opt.Adam(self.classifier.parameters(), lr)
         # Define loss
@@ -82,9 +80,8 @@ class Linear_Protocoler(object):
             if scheduler:
                 scheduler.step()
                 
-    def get_accuracy(self, dataloader):
-        correct = 0
-        total = 0
+    def linear_accuracy(self, dataloader):
+        total_top1, total_num = 0., 0
         # since we're not training, we don't need to calculate the gradients for our outputs
         with torch.no_grad():
             self.classifier.eval()
@@ -94,8 +91,69 @@ class Linear_Protocoler(object):
                 outputs = self.classifier(x)
                 # the class with the highest energy is what we choose as prediction
                 _, predicted = torch.max(outputs.data, 1)
-                total += y.size(0)
-                correct += (predicted == y).sum().item()
+                total_num += y.size(0)
+                total_top1 += (predicted == y).float().sum().item()
             self.classifier.train()
         
-        return correct / total
+        return total_top1 / total_num * 100
+    
+
+# code for kNN prediction from here:
+# https://colab.research.google.com/github/facebookresearch/moco/blob/colab-notebook/colab/moco_cifar10_demo.ipynb
+def knn_predict(feature: torch.Tensor,
+                feature_bank: torch.Tensor,
+                feature_labels: torch.Tensor, 
+                num_classes: int,
+                knn_k: int,
+                knn_t: float) -> torch.Tensor:
+    """Run kNN predictions on features based on a feature bank
+    This method is commonly used to monitor performance of self-supervised
+    learning methods.
+    The default parameters are the ones
+    used in https://arxiv.org/pdf/1805.01978v1.pdf.
+    Args:
+        feature: 
+            Tensor of shape [N, D] for which you want predictions
+        feature_bank: 
+            Tensor of a database of features used for kNN
+        feature_labels: 
+            Labels for the features in our feature_bank
+        num_classes: 
+            Number of classes (e.g. `10` for CIFAR-10)
+        knn_k: 
+            Number of k neighbors used for kNN
+        knn_t: 
+            Temperature parameter to reweights similarities for kNN
+    Returns:
+        A tensor containing the kNN predictions
+    Examples:
+        >>> images, targets, _ = batch
+        >>> feature = backbone(images).squeeze()
+        >>> # we recommend to normalize the features
+        >>> feature = F.normalize(feature, dim=1)
+        >>> pred_labels = knn_predict(
+        >>>     feature,
+        >>>     feature_bank,
+        >>>     targets_bank,
+        >>>     num_classes=10,
+        >>> )
+    """
+
+    # compute cos similarity between each feature vector and feature bank ---> [B, N]
+    sim_matrix = torch.mm(feature, feature_bank)
+    # [B, K]
+    sim_weight, sim_indices = sim_matrix.topk(k=knn_k, dim=-1)
+    # [B, K]
+    sim_labels = torch.gather(feature_labels.expand(feature.size(0), -1), dim=-1, index=sim_indices)
+    # we do a reweighting of the similarities
+    sim_weight = (sim_weight / knn_t).exp()
+    
+    # counts for each class
+    one_hot_label = torch.zeros(feature.size(0) * knn_k, num_classes, device=sim_labels.device)
+    # [B*K, C]
+    one_hot_label = one_hot_label.scatter(dim=-1, index=sim_labels.view(-1, 1), value=1.0)
+    # weighted score ---> [B, C]
+    pred_scores = torch.sum(one_hot_label.view(feature.size(0), -1, num_classes) * sim_weight.unsqueeze(dim=-1), dim=1)
+    
+    pred_labels = pred_scores.argsort(dim=-1, descending=True)
+    return pred_labels

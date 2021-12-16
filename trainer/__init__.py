@@ -1,0 +1,1 @@
+from .cifar_10 import cifar10_trainer
