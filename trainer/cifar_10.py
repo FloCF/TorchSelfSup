@@ -4,9 +4,60 @@ import time
 import torch
 from torch.optim import lr_scheduler
 
-from optimizer import LARS
 from utils import check_existing_model, Linear_Protocoler
 
+class Trainer(object):
+    def __init__(self, model, ssl_data, device='cuda'):
+        # Define device
+        self.device = torch.device(device)
+        
+        # Init
+        self.loss_hist = []
+        self.eval_acc = {'lin': [], 'knn': []}
+        
+        # Model
+        self.model = model
+        
+        # Define data
+        self.data = ssl_data
+    
+    def train_epoch(self, iter_scheduler):
+        for (x1,x2), _ in self.data.train_dl:
+            x1,x2 = x1.to(self.device), x2.to(self.device)
+        
+            # Forward pass
+            loss = self.model(x1,x2)
+        
+            # Backward pass
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+        
+            if iter_scheduler:
+                # Scheduler every iteration for cosine deday
+                self.scheduler.step()
+        
+            # Save loss
+            self._epoch_loss += loss.item()
+            
+    def train(self, save_root, train_params, optim_params, scheduler_params):
+        # Check for trained model
+        train_params['epoch_start'], saved_data = check_existing_model(save_root, self.device)
+        
+        # Define optimizer
+        self.optimizer = train_params['optimizer'](self.model.parameters(), **optim_params)
+        
+        # Define scheduler for warmup
+        train_len = len(self.data.train_dl)
+        if 'warmup_epochs' in scheduler_params.keys() and train_params['epoch_start'] > train_params['warmup_epchs']:
+            self.scheduler = lr_scheduler.LambdaLR(optimizer,
+                                                   lambda it: (it+1)/(train_params['warmup_epchs']*train_len))
+            train_params['iter_schduler'] = True
+        else 
+        
+        
+        
+        
 def cifar10_trainer(save_root, model, ssl_data, optim_params, train_params,
                     eval_params, verbose = True):    
     
