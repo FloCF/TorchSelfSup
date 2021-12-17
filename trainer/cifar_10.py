@@ -14,6 +14,7 @@ class Trainer(object):
         # Init
         self.loss_hist = []
         self.eval_acc = {'lin': [], 'knn': []}
+        self._iter_scheduler = False
         
         # Model
         self.model = model
@@ -21,7 +22,7 @@ class Trainer(object):
         # Define data
         self.data = ssl_data
     
-    def train_epoch(self, iter_scheduler):
+    def train_epoch(self):
         for (x1,x2), _ in self.data.train_dl:
             x1,x2 = x1.to(self.device), x2.to(self.device)
         
@@ -33,13 +34,24 @@ class Trainer(object):
             loss.backward()
             self.optimizer.step()
         
-            if iter_scheduler:
+            if self._iter_scheduler:
                 # Scheduler every iteration for cosine deday
                 self.scheduler.step()
         
             # Save loss
             self._epoch_loss += loss.item()
-            
+    
+    def evaluate(self,):
+        # Linear protocol
+            evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=model.repre_dim, device=device)
+            # knn accuracy
+            eval_acc['knn'].append(evaluator.knn_accuracy(ssl_data.train_eval_dl, ssl_data.test_dl))
+            # linear protocol
+            evaluator.train(ssl_data.train_eval_dl, eval_params)
+            eval_acc['lin'].append(evaluator.linear_accuracy(ssl_data.test_dl))
+            # print
+            print(f'Accuracy after epoch {epoch}: KNN:{eval_acc["knn"][-1]}, Linear: {eval_acc["lin"][-1]}')
+    
     def train(self, save_root, train_params, optim_params, scheduler_params):
         # Check for trained model
         train_params['epoch_start'], saved_data = check_existing_model(save_root, self.device)
@@ -47,17 +59,67 @@ class Trainer(object):
         # Define optimizer
         self.optimizer = train_params['optimizer'](self.model.parameters(), **optim_params)
         
-        # Define scheduler for warmup
+        # Define scheduler
         train_len = len(self.data.train_dl)
+        # If with warmup
         if 'warmup_epochs' in scheduler_params.keys() and train_params['epoch_start'] > train_params['warmup_epchs']:
             self.scheduler = lr_scheduler.LambdaLR(optimizer,
                                                    lambda it: (it+1)/(train_params['warmup_epchs']*train_len))
-            train_params['iter_schduler'] = True
-        else 
+            self._iter_scheduler = True
+        else:
+            if train_params['scheduler']:
+                self.scheduler = train_params['scheduler'](self.optimizer, **scheduler_params)
+                self._iter_scheduler = train_params['iter_scheduler']
+            else: # scheduler = None 
+                self.scheduler = train_params['scheduler']
         
+        # Extract saved data
+        if saved_data:
+            self.model.load_state_dict(saved_data['model'])
+            self.optimizer.load_state_dict(saved_data['optim'])
+            self.scheduler.load_state_dict(saved_data['sched'])
+            self.loss_hist = saved_data['loss_hist']
+            self.eval_acc = saved_data['eval_acc']
         
+        # Run Training
+        for epoch in range(train_params['epoch_start'], train_params['num_epochs']):
+            self._epoch_loss = 0
+            start_time = time.time()
+            
+            self.train_epoch()
+    
+        # Switch to new schedule after warmup period
+        if 'warmup_epochs' in scheduler_params.keys() and epoch+1==train_params['warmup_epchs']:
+            if train_params['scheduler']:
+                self.scheduler = train_params['scheduler'](self.optimizer, **scheduler_params)
+                iter_scheduler = train_params['iter_scheduler']
+            else: # scheduler = None 
+                self.scheduler = train_params['scheduler']
+    
+        # Log
+        self.loss_hist.append(self._epoch_loss/train_len)
+        if verbose:
+            print(f'Epoch: {epoch}, Loss: {loss_hist[-1]}, Time epoch: {time.time() - start_time}')
+    
+        # Run evaluation
+        if (epoch+1) in eval_params['evaluate_at']:
+            # Linear protocol
+            evaluator = Linear_Protocoler(model.backbone_net, repre_dim=model.repre_dim, device=device)
+            # knn accuracy
+            eval_acc['knn'].append(evaluator.knn_accuracy(ssl_data.train_eval_dl, ssl_data.test_dl))
+            # linear protocol
+            evaluator.train(ssl_data.train_eval_dl, eval_params)
+            eval_acc['lin'].append(evaluator.linear_accuracy(ssl_data.test_dl))
+            # print
+            print(f'Accuracy after epoch {epoch}: KNN:{eval_acc["knn"][-1]}, Linear: {eval_acc["lin"][-1]}')
         
-        
+            torch.save({'model': model.state_dict(),
+                        'optim': optimizer.state_dict(),
+                        'sched': scheduler.state_dict(),
+                        'loss_hist': loss_hist,
+                        'eval_acc': eval_acc},
+                       path.join(save_root, f'epoch_{epoch+1:03}.tar'))
+            
 def cifar10_trainer(save_root, model, ssl_data, optim_params, train_params,
                     eval_params, verbose = True):    
     
