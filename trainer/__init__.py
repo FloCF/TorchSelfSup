@@ -1,1 +1,1 @@
-from .cifar_10 import cifar10_trainer
+from .ssl_trainer import SSL_Trainer

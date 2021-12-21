@@ -47,9 +47,7 @@ class Linear_Protocoler(object):
         
         return total_top1 / total_num * 100
     
-    def train(self, dataloader, eval_params):
-        # get hyperparams
-        num_epochs, lr, milestones = eval_params['num_epochs'], eval_params['lr'], eval_params['milestones']
+    def train(self, dataloader, num_epochs, lr, milestones = None):
         # get classes
         num_classes = len(dataloader.dataset.classes)
         
