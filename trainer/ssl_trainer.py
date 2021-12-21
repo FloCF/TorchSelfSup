@@ -41,18 +41,18 @@ class SSL_Trainer(object):
             # Save loss
             self._epoch_loss += loss.item()
     
-    def evaluate(self, eval_params):
+    def evaluate(self, num_epochs, lr, milestones = None):
         # Linear protocol
-        evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=model.repre_dim, device=device)
+        evaluator = Linear_Protocoler(self.model.backbone_net, repre_dim=self.model.repre_dim, device=self.device)
         # knn accuracy
         self.eval_acc['knn'].append(evaluator.knn_accuracy(self.data.train_eval_dl, self.data.test_dl))
         # linear protocol
-        evaluator.train(self.data.train_eval_dl, eval_params)
+        evaluator.train(self.data.train_eval_dl, num_epochs, lr, milestones)
         self.eval_acc['lin'].append(evaluator.linear_accuracy(self.data.test_dl))
 
     def train(self, save_root, num_epochs, optimizer,
               scheduler, optim_params, scheduler_params, eval_params,
-              warmup_epochs=10, iter_schduler=True, evaluate_at=[100,200,400]):
+              warmup_epochs=10, iter_scheduler=True, evaluate_at=[100,200,400], verbose=True):
         
         # Check and Load existing model
         epoch_start, optim_state, sched_state = self.load_model(save_root, return_vals=True)
@@ -105,17 +105,17 @@ class SSL_Trainer(object):
                 print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]}, Time epoch: {time.time() - start_time}')
     
             # Run evaluation
-            if (epoch+1) in eval_params['evaluate_at']:
-                self.evaluate(eval_params)
+            if (epoch+1) in evaluate_at:
+                self.evaluate(**eval_params)
                 # print
-                print(f'Accuracy after epoch {epoch}: KNN:{eval_acc["knn"][-1]}, Linear: {eval_acc["lin"][-1]}')
+                print(f'Accuracy after epoch {epoch}: KNN:{self.eval_acc["knn"][-1]}, Linear: {self.eval_acc["lin"][-1]}')
         
             self.save_model(save_root, epoch)
                 
     def save_model(self, save_root, epoch):
         torch.save({'model': self.model.state_dict(),
                     'optim': self.optimizer.state_dict(),
-                    'sched': scheduler.state_dict() if scheduler else None,
+                    'sched': self.scheduler.state_dict() if self.scheduler else None,
                     'loss_hist': self.loss_hist,
                     'eval_acc': self.eval_acc},
                    path.join(save_root, f'epoch_{epoch+1:03}.tar'))
