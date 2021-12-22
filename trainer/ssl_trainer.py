@@ -36,8 +36,8 @@ class SSL_Trainer(object):
             self.optimizer.step()
             
             # save learning rate
-            self._hist_lr.append(self.optimizer.param_groups[0]['lr'])
-            
+            self._hist_lr.append(self.scheduler.get_last_lr())
+
             if self.scheduler and self._iter_scheduler:
                 # Scheduler every iteration for cosine deday
                 self.scheduler.step()
