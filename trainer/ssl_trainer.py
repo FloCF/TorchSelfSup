@@ -7,24 +7,27 @@ from torch.optim import lr_scheduler
 from utils import check_existing_model, Linear_Protocoler
 
 class SSL_Trainer(object):
-    def __init__(self, model, ssl_data, device='cuda'):
+    def __init__(self, model, ssl_data, device='cuda', use_momentum=False):
         # Define device
         self.device = torch.device(device)
+        
+        # Define if use momentum
+        self.use_momentum = use_momentum
         
         # Init
         self.loss_hist = []
         self.eval_acc = {'lin': [], 'knn': []}
         self._iter_scheduler = False
-        
         self._hist_lr = []
+        
         # Model
         self.model = model.to(self.device)
         
         # Define data
         self.data = ssl_data
-    
-    def train_epoch(self):
-        for (x1,x2), _ in self.data.train_dl:
+
+    def train_epoch(self, epoch_id):
+        for i, ((x1,x2), _) in enumerate(self.data.train_dl):
             x1,x2 = x1.to(self.device), x2.to(self.device)
         
             # Forward pass
@@ -34,6 +37,12 @@ class SSL_Trainer(object):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            
+            # Update momentum encoder
+            if self.use_momentum:
+                # get τ
+                tau = self.model.get_tau(1+i+self._train_len*epoch_id, self._total_iters)
+                self.model.update_moving_average(tau)
             
             # save learning rate
             self._hist_lr.append(self.scheduler.get_last_lr())
@@ -62,7 +71,8 @@ class SSL_Trainer(object):
         epoch_start, optim_state, sched_state = self.load_model(save_root, return_vals=True)
         
         # Extract training length
-        train_len = len(self.data.train_dl)
+        self._train_len = len(self.data.train_dl)
+        self._total_iters = num_epochs * self._train_len
         
         # Define Optimizer
         self.optimizer = optimizer(self.model.parameters(), **optim_params)
@@ -72,7 +82,7 @@ class SSL_Trainer(object):
         # Define Scheduler
         if warmup_epochs and epoch_start < warmup_epochs:
             self.scheduler = lr_scheduler.LambdaLR(self.optimizer,
-                                                   lambda it: (it+1)/(warmup_epochs*train_len))
+                                                   lambda it: (it+1)/(warmup_epochs*self._train_len))
             self._iter_scheduler = True
         else:
             if scheduler:
@@ -89,7 +99,7 @@ class SSL_Trainer(object):
             self._epoch_loss = 0
             start_time = time.time()
             
-            self.train_epoch()
+            self.train_epoch(epoch)
             
             if self.scheduler and not self._iter_scheduler:
                 # Scheduler only every epoch
@@ -104,7 +114,7 @@ class SSL_Trainer(object):
                     self.scheduler = scheduler
     
             # Log
-            self.loss_hist.append(self._epoch_loss/train_len)
+            self.loss_hist.append(self._epoch_loss/self._train_len)
             if verbose:
                 print(f'Epoch: {epoch}, Loss: {self.loss_hist[-1]}, Time epoch: {time.time() - start_time}')
     
