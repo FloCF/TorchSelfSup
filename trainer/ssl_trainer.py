@@ -70,9 +70,9 @@ class SSL_Trainer(object):
             self.optimizer.load_state_dict(optim_state)
         
         # Define Scheduler
-        if 'warmup_epochs' in scheduler_params.keys() and epoch_start > warmup_epchs:
-            self.scheduler = lr_scheduler.LambdaLR(optimizer,
-                                                   lambda it: (it+1)/(warmup_epchs*train_len))
+        if warmup_epochs and epoch_start < warmup_epochs:
+            self.scheduler = lr_scheduler.LambdaLR(self.optimizer,
+                                                   lambda it: (it+1)/(warmup_epochs*train_len))
             self._iter_scheduler = True
         else:
             if scheduler:
@@ -96,7 +96,7 @@ class SSL_Trainer(object):
                 self.scheduler.step()
             
             # Switch to new schedule after warmup period
-            if 'warmup_epochs' in scheduler_params.keys() and epoch+1==warmup_epchs:
+            if warmup_epochs and epoch+1==warmup_epochs:
                 if scheduler:
                     self.scheduler = scheduler(self.optimizer, **scheduler_params)
                     self._iter_scheduler = iter_scheduler
