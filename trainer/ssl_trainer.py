@@ -16,6 +16,7 @@ class SSL_Trainer(object):
         self.eval_acc = {'lin': [], 'knn': []}
         self._iter_scheduler = False
         
+        self._hist_lr = []
         # Model
         self.model = model
         
@@ -33,7 +34,10 @@ class SSL_Trainer(object):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-        
+            
+            # save learning rate
+            self._hist_lr.append(self.optimizer.param_groups[0]['lr'])
+            
             if self.scheduler and self._iter_scheduler:
                 # Scheduler every iteration for cosine deday
                 self.scheduler.step()
@@ -117,7 +121,8 @@ class SSL_Trainer(object):
                     'optim': self.optimizer.state_dict(),
                     'sched': self.scheduler.state_dict() if self.scheduler else None,
                     'loss_hist': self.loss_hist,
-                    'eval_acc': self.eval_acc},
+                    'eval_acc': self.eval_acc,
+                    'lr_hist': self._hist_lr},
                    path.join(save_root, f'epoch_{epoch+1:03}.tar'))
     
     
@@ -131,5 +136,6 @@ class SSL_Trainer(object):
             self.model.load_state_dict(saved_data['model'])
             self.loss_hist = saved_data['loss_hist']
             self.eval_acc = saved_data['eval_acc']
+            self._hist_lr = saved_data['lr_hist']
             if return_vals:
                 return epoch_start, saved_data['optim'], saved_data['sched']

@@ -21,7 +21,6 @@ class SSL_CIFAR10(object):
             train_transf = VICReg_augmentaions(image_size=32, normalize=CIFAR10_NORM)
             
         train_eval_transf = transforms.Compose([
-            transforms.RandomResizedCrop(32, (0.8, 1.),interpolation=transforms.InterpolationMode('bicubic')),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(*CIFAR10_NORM)
