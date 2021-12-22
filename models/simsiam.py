@@ -13,11 +13,11 @@ class SimSiam(nn.Module):
         super().__init__()
         
         self.backbone_net = backbone_net
-        repre_dim = self.backbone_net.fc.in_features
+        self.repre_dim = self.backbone_net.fc.in_features
         backbone_net.fc = nn.Identity()
         
         # Define projector
-        self.projector = MLP(repre_dim, projector_hidden, batchnorm_last = True)
+        self.projector = MLP(self.repre_dim, projector_hidden, batchnorm_last = True)
             
         # Define online predictor
         if predictor_hidden:

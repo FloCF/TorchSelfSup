@@ -18,7 +18,7 @@ class SSL_Trainer(object):
         
         self._hist_lr = []
         # Model
-        self.model = model
+        self.model = model.to(self.device)
         
         # Define data
         self.data = ssl_data
