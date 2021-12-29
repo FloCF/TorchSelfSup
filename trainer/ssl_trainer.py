@@ -133,7 +133,7 @@ class SSL_Trainer(object):
         print(f'Accuracy after full Training: KNN:{self.eval_acc["knn"][-1]}, Linear: {self.eval_acc["lin"][-1]}')
         
         # Save final model
-        self.save_model(save_root, epoch)
+        self.save_model(save_root, num_epochs)
         
     def save_model(self, save_root, epoch):
         torch.save({'model': self.model.state_dict(),

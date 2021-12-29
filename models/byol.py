@@ -16,11 +16,11 @@ class BYOL(nn.Module):
         super().__init__()
         
         self.backbone_net = backbone_net
-        repre_dim = self.backbone_net.fc.in_features
+        self.repre_dim = self.backbone_net.fc.in_features
         backbone_net.fc = nn.Identity()
         
         # Define encoders
-        self.encoder_online = nn.Sequential(self.backbone_net, MLP(repre_dim, projector_hidden))
+        self.encoder_online = nn.Sequential(self.backbone_net, MLP(self.repre_dim, projector_hidden))
         self.encoder_target = copy.deepcopy(self.encoder_online)
         # Turn of requires grad
         for p in self.encoder_target.parameters():
