@@ -125,7 +125,7 @@ class SSL_Trainer(object):
                 print(f'Accuracy after epoch {epoch}: KNN:{self.eval_acc["knn"][-1]}, Linear: {self.eval_acc["lin"][-1]}')
             
                 # Save model
-                self.save_model(save_root, epoch)
+                self.save_model(save_root, epoch+1)
         
         # Evaluate after Training
         self.evaluate(**eval_params)
@@ -142,7 +142,7 @@ class SSL_Trainer(object):
                     'loss_hist': self.loss_hist,
                     'eval_acc': self.eval_acc,
                     'lr_hist': self._hist_lr},
-                   path.join(save_root, f'epoch_{epoch+1:03}.tar'))
+                   path.join(save_root, f'epoch_{epoch:03}.tar'))
     
     
     def load_model(self, save_root, return_vals=False):
