@@ -7,12 +7,13 @@ from torch.optim import lr_scheduler
 from utils import check_existing_model, Linear_Protocoler
 
 class SSL_Trainer(object):
-    def __init__(self, model, ssl_data, device='cuda', use_momentum=False):
+    def __init__(self, model, ssl_data, device='cuda', use_momentum=False, momentum_tau: float = None):
         # Define device
         self.device = torch.device(device)
         
         # Define if use momentum
         self.use_momentum = use_momentum
+        self.momentum_tau = momentum_tau
         
         # Init
         self.loss_hist = []
@@ -40,8 +41,10 @@ class SSL_Trainer(object):
             
             # Update momentum encoder
             if self.use_momentum:
-                # get τ
-                tau = self.model.get_tau(1+i+self._train_len*epoch_id, self._total_iters)
+                if self.momentum_tau: # Use predefined momentum
+                    tau = self.momentum_tau
+                else: # get τ based on BYOL schedule
+                    tau = self.model.get_tau(1+i+self._train_len*epoch_id, self._total_iters)
                 self.model.update_moving_average(tau)
             
             # save learning rate
