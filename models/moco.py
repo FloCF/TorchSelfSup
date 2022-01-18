@@ -86,16 +86,17 @@ class MoCo(nn.Module):
         # Predictor
         p1, p2 = self.predictor(p1), self.predictor(p2)
         
-        if shuffle:
-            x1, shuffle = self.batch_shuffle(x1)
-            z1 = self.projector_momentum(self.encoder_momentum(x1))
-            z1 = self.batch_unshuffle(z1, shuffle)
-        
-            x2, shuffle = self.batch_shuffle(x2)
-            z2 = self.projector_momentum(self.encoder_momentum(x2))
-            z2 = self.batch_unshuffle(z2, shuffle)
-        else:
-            z1 = self.projector_momentum(self.encoder_momentum(x1))
-            z2 = self.projector_momentum(self.encoder_momentum(x2))
+        with torch.no_grad():
+            if shuffle:
+                x1, shuffle = self.batch_shuffle(x1)
+                z1 = self.projector_momentum(self.encoder_momentum(x1))
+                z1 = self.batch_unshuffle(z1, shuffle)
+            
+                x2, shuffle = self.batch_shuffle(x2)
+                z2 = self.projector_momentum(self.encoder_momentum(x2))
+                z2 = self.batch_unshuffle(z2, shuffle)
+            else:
+                z1 = self.projector_momentum(self.encoder_momentum(x1))
+                z2 = self.projector_momentum(self.encoder_momentum(x2))
             
         return self.loss_fn(p1, p2, z1, z2, self.training)
