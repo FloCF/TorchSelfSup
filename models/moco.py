@@ -7,16 +7,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from losses import NTXentLoss
 from .utils import MLP
 
 class MoCo(nn.Module):
     def __init__(self, backbone_net: nn.Module,
                  projector_hidden: Union[int, tuple] = (2048, 128),
-                 memory_bank_size: int = 65536,
-                 temperature: float = 0.07):
+                 predictor_hidden: Optional[Union[int, tuple]] = None,
+                 temperature: float = 0.2,
+                 memory_bank_size: int = 65536):
         super().__init__()
         
-        self.temperature = temperature
+        self.nt_xent_loss = NTXentLoss(temperature, memory_bank_size)
         
         self.backbone_net = backbone_net
         self.repre_dim = self.backbone_net.fc.in_features
@@ -25,16 +27,23 @@ class MoCo(nn.Module):
         # Define projector and init memory bank
         if projector_hidden:
             self.projector = MLP(self.repre_dim, projector_hidden)
-            self.memory_bank = F.normalize(torch.randn(memory_bank_size, projector_hidden[-1]), dim=1)
         else: # Use no projector
             self.projector = nn.Identity()
-            self.memory_bank = F.normalize(torch.randn(memory_bank_size, self.repre_dim), dim=1) 
+
+        # Define online predictor
+        if predictor_hidden:
+            if projector_hidden:
+                self.predictor = MLP(projector_hidden[-1], predictor_hidden)
+            else:
+                self.predictor = MLP(self.repre_dim, predictor_hidden)
+        else: # Don't use predictor
+            self.predictor = nn.Identity()   
             
-        # Define target backbone and projector
+        # Define momentum backbone and projector
         self.encoder_momentum = copy.deepcopy(self.backbone_net)
         self.projector_momentum = copy.deepcopy(self.projector)
         # Turn of requires grad
-        for model in [self.encoder_target, self.projector_target]:
+        for model in [self.encoder_momentum, self.projector_momentum]:
             for p in model.parameters():
                 p.requires_grad = False
     
@@ -45,72 +54,48 @@ class MoCo(nn.Module):
     @torch.no_grad()
     def update_moving_average(self, τ):
         # Update backbone encoder
-        for online, target in zip(self.backbone_net.parameters(), self.encoder_momentum.parameters()):
-            target.data = τ * target.data + (1 - τ) * online.data
+        for online, momentum in zip(self.backbone_net.parameters(), self.encoder_momentum.parameters()):
+            momentum.data = τ * momentum.data + (1 - τ) * online.data
         # Update projector
-        for online, target in zip(self.projector.parameters(), self.projector_momentum.parameters()):
-            target.data = τ * target.data + (1 - τ) * online.data 
-    
-    @torch.no_grad()
-    def _add_to_memory_bank(self, batch: torch.Tensor):
-        batch_size = batch.shape[0]
-        # dequeue
-        self.memory_bank = self.memory_bank[batch_size:]
-        # enqueue
-        self.memory_bank = torch.cat([self.memory_bank, batch.detach()])
+        for online, momentum in zip(self.projector.parameters(), self.projector_momentum.parameters()):
+            momentum.data = τ * momentum.data + (1 - τ) * online.data 
         
     # Code copied from https://github.com/lightly-ai/lightly/blob/master/lightly/models/utils.py
     @torch.no_grad()
-    def batch_shuffle(batch: torch.Tensor):
+    def batch_shuffle(self, batch: torch.Tensor):
         batch_size = batch.shape[0]
         shuffle = torch.randperm(batch_size, device=batch.device)
         return batch[shuffle], shuffle
     
     @torch.no_grad()
-    def batch_unshuffle(batch: torch.Tensor, shuffle: torch.Tensor):
+    def batch_unshuffle(self, batch: torch.Tensor, shuffle: torch.Tensor):
         unshuffle = torch.argsort(shuffle)
         return batch[unshuffle]
     
-    def _NTXentLoss(self, p, z, temp):
-        # Extract stats
-        device=p.device # Device
-        bs = p.shape[0] # Batch_size
-        # Normalize
-        p, z = F.normalize(p, dim=1), F.normalize(z, dim=1)
-        
-        # b,k: batch size of p and z, f: embedding_size, m: memory bank size
-        if len(self.memory_bank)>0:
-            sim_pos = torch.einsum('bf,bf->b', p, z).unsqueeze(-1)
-            sim_neg = torch.einsum('bf,mf->bm', p, self.memory_bank)
-            logits = torch.cat([sim_pos, sim_neg], dim=1) / temp
-            labels = torch.zeros(logits.shape[0], device=device, dtype=torch.long)
-        else: # If no memory, use other samples from batch as negatives
-            output = torch.cat([p, z], dim=0)
-            logits = torch.einsum('bf,kf->bk', output, output) / temp
-            logits = logits[~torch.eye(2*bs, dtype=torch.bool, device=device)].view(2*bs, -1)
-            labels = torch.arange(bs, device=device, dtype=torch.long)
-            labels = torch.cat([labels + bs - 1, labels])
-            
-        return F.cross_entropy(logits, labels), z
-    
-    def loss_fn(self, p1, p2, z1, z2, temp):
-        loss1, z2 = self._NTXentLoss(p1, z2, temp)
-        loss2, z1 = self._NTXentLoss(p2, z1, temp)
-        
-        self._add_to_memory_bank(torch.cat([z1,z2]))
-        
+    def loss_fn(self, p1, p2, z1, z2, update_bank):
+        loss1 = self.nt_xent_loss(p1, z2, update_bank)
+        loss2 = self.nt_xent_loss(p2, z1, update_bank)
+                
         return 0.5 * (loss1 + loss2)
 
-    def forward(self, x1, x2):
-        p1 = self.projector(self.backbone_net(x1))
-        p2 = self.projector(self.backbone_net(x2))
+    def forward(self, x1, x2, shuffle = True):
+        # Encoder
+        p1, p2 = self.backbone_net(x1), self.backbone_net(x2)
+        # Projector
+        p1, p2 = self.projector(p1), self.projector(p2)
+        # Predictor
+        p1, p2 = self.predictor(p1), self.predictor(p2)
         
-        x1, shuffle = self.batch_shuffle(x1)
-        z1 = self.projector_momentum(self.encoder_momentum(x1))
-        z1 = batch_unshuffle(z1, shuffle)
+        if shuffle:
+            x1, shuffle = self.batch_shuffle(x1)
+            z1 = self.projector_momentum(self.encoder_momentum(x1))
+            z1 = self.batch_unshuffle(z1, shuffle)
         
-        x2, shuffle = self.batch_shuffle(x2)
-        z2 = self.projector_momentum(self.encoder_momentum(x2))
-        z2 = batch_unshuffle(z2, shuffle)
-                
-        return self.loss_fn(p1, p2, z1, z2, self.temperature)
+            x2, shuffle = self.batch_shuffle(x2)
+            z2 = self.projector_momentum(self.encoder_momentum(x2))
+            z2 = self.batch_unshuffle(z2, shuffle)
+        else:
+            z1 = self.projector_momentum(self.encoder_momentum(x1))
+            z2 = self.projector_momentum(self.encoder_momentum(x2))
+            
+        return self.loss_fn(p1, p2, z1, z2, self.training)
