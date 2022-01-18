@@ -7,7 +7,7 @@ def simclr_transforms(image_size: int, jitter: tuple = (0.4, 0.4, 0.2, 0.1),
                       p_blur: float = 1.0, p_solarize: float = 0.0,
                       normalize: list = IMAGENET_NORM):
     
-    trans_list = [T.RandomResizedCrop(image_size, interpolation=T.InterpolationMode('bicubic')),
+    trans_list = [T.RandomResizedCrop(image_size),
                   T.RandomHorizontalFlip(),
                   T.RandomApply([T.ColorJitter(*jitter)], p=0.8),
                   T.RandomGrayscale(p=0.2)]
