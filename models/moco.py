@@ -26,7 +26,7 @@ class MoCo(nn.Module):
         
         # Define projector and init memory bank
         if projector_hidden:
-            self.projector = MLP(self.repre_dim, projector_hidden)
+            self.projector = MLP(self.repre_dim, projector_hidden, batchnorm_last=True)
         else: # Use no projector
             self.projector = nn.Identity()
 

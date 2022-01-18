@@ -22,7 +22,7 @@ class MLP(nn.Module):
                         nn.Linear(hidden_dims[i], hidden_dims[i+1], bias = bias)])
         if batchnorm_last:
             # for simplicity, remove gamma in last BN
-            mlp.append(nn.BatchNorm1d(hidden_dims[-1], affine=False)
+            mlp.append(nn.BatchNorm1d(hidden_dims[-1], affine=False))
         
         self.mlp = nn.Sequential(*mlp)
 
