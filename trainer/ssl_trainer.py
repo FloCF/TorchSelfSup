@@ -7,13 +7,16 @@ from torch.optim import lr_scheduler
 from utils import check_existing_model, Linear_Protocoler
 
 class SSL_Trainer(object):
-    def __init__(self, model, ssl_data, device='cuda', use_momentum=False, momentum_tau: float = None):
+    def __init__(self, model, ssl_data, device='cuda',
+                 use_momentum: bool = False, momentum_tau: float = None,
+                 use_memory_bank: bool = False):
         # Define device
         self.device = torch.device(device)
         
         # Define if use momentum
         self.use_momentum = use_momentum
         self.momentum_tau = momentum_tau
+        self.use_memory_bank = use_memory_bank
         
         # Init
         self.loss_hist = []
@@ -139,25 +142,34 @@ class SSL_Trainer(object):
         self.save_model(save_root, num_epochs)
         
     def save_model(self, save_root, epoch):
-        torch.save({'model': self.model.state_dict(),
+        save_data = {'model': self.model.state_dict(),
                     'optim': self.optimizer.state_dict(),
                     'sched': self.scheduler.state_dict() if self.scheduler else None,
                     'loss_hist': self.loss_hist,
                     'eval_acc': self.eval_acc,
-                    'lr_hist': self._hist_lr},
-                   path.join(save_root, f'epoch_{epoch:03}.tar'))
-    
+                    'lr_hist': self._hist_lr}
+        # Add the memory bank to the save data
+        if self.use_memory_bank:
+            save_data['memory_bank'] = self.model.nt_xent_loss.memory_bank
+        
+        torch.save(save_data, path.join(save_root, f'epoch_{epoch:03}.tar'))
     
     def load_model(self, save_root, return_vals=False):
         # Check for trained model
         epoch_start, saved_data = check_existing_model(save_root, self.device)
         
-        if saved_data is None and return_vals:
-            return epoch_start, None, None
+        if saved_data is None:
+            if return_vals:
+                return epoch_start, None, None
         else:
             self.model.load_state_dict(saved_data['model'])
             self.loss_hist = saved_data['loss_hist']
             self.eval_acc = saved_data['eval_acc']
             self._hist_lr = saved_data['lr_hist']
+            if self.use_memory_bank:
+                self.model.nt_xent_loss.memory_bank = saved_data['memory_bank']
+                
             if return_vals:
                 return epoch_start, saved_data['optim'], saved_data['sched']
+        
+        

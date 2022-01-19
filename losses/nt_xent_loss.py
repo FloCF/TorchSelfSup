@@ -12,8 +12,6 @@ class NTXentLoss(nn.Module):
         
         # init
         self.memory_bank = None
-        self._mask = None
-        self._labels = None
         
     def init_memory_bank(self, feature_dim:int, device):
         if self.memory_bank_size > 0:
