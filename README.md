@@ -2,9 +2,10 @@
 
 ## Installation
 
-For installing the package just run from library folder:
+For installing the package you need to clone repo and install it via:
 ```
-pip install -e .
+git clone https://github.com/FloCF/SSL_pytorch.git
+pip install SSL_pytorch
 ```
 This will call the setup-script and install all the necessary packages.
 
