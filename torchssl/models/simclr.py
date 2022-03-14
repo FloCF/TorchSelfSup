@@ -1,6 +1,5 @@
 import copy
 
-from math import cos,pi
 from typing import Optional, Union
 
 import torch
