@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from losses import NTXentLoss
+from torchssl.losses import NTXentLoss
 from .utils import MLP
 
 class SimCLR(nn.Module):

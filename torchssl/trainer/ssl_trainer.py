@@ -4,7 +4,7 @@ import time
 import torch
 from torch.optim import lr_scheduler
 
-from utils import check_existing_model, Linear_Protocoler
+from torchssl.utils import check_existing_model, Linear_Protocoler
 
 class SSL_Trainer(object):
     def __init__(self, model, ssl_data, device='cuda',

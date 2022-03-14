@@ -1,5 +1,5 @@
-results/*
 .ipynb_checkpoints
 __pycache__
-playground*.ipynb
-data/*
+results/*
+!results/.gitkeep
+PyTorchSSL.egg-info/*

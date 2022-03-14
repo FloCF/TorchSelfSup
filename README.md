@@ -1,5 +1,13 @@
 # PyTorch Implementation of Self-Supervised Method
 
+## Installation
+
+For installing the package just run from library folder:
+```
+pip install -e .
+```
+This will call the setup-script and install all the necessary packages.
+
 ## Implementation Plan:
 
 * **Contrastive:** 

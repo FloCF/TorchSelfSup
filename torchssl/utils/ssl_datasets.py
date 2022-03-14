@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from augmentation import *
+from torchssl.augmentation import *
 
 class SSL_CIFAR10(object):
     
