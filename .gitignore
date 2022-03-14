@@ -4,4 +4,4 @@ results/*
 !results/.gitkeep
 data/*
 !data/.gitkeep
-PyTorchSSL.egg-info/*
+SSL_pytorch.egg-info/*
