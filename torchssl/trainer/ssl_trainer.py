@@ -51,7 +51,7 @@ class SSL_Trainer(object):
                 self.model.update_moving_average(tau)
             
             # save learning rate
-            self._hist_lr.append(self.scheduler.get_last_lr())
+            self._hist_lr.append(self.optimizer.param_groups[0]['lr'])
 
             if self.scheduler and self._iter_scheduler:
                 # Scheduler every iteration, e.g. for cosine deday
