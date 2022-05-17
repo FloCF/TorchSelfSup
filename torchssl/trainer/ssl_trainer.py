@@ -54,7 +54,7 @@ class SSL_Trainer(object):
             self._hist_lr.append(self.scheduler.get_last_lr())
 
             if self.scheduler and self._iter_scheduler:
-                # Scheduler every iteration for cosine deday
+                # Scheduler every iteration, e.g. for cosine deday
                 self.scheduler.step()
         
             # Save loss
@@ -71,7 +71,7 @@ class SSL_Trainer(object):
 
     def train(self, save_root, num_epochs, optimizer,
               scheduler, optim_params, scheduler_params, eval_params,
-              warmup_epochs=10, iter_scheduler=True, evaluate_at=[100,200,400], verbose=True):
+              iter_scheduler=True, evaluate_at=[100,200,400], verbose=True):
         
         # Check and Load existing model
         epoch_start, optim_state, sched_state = self.load_model(save_root, return_vals=True)
@@ -82,24 +82,20 @@ class SSL_Trainer(object):
         
         # Define Optimizer
         self.optimizer = optimizer(self.model.parameters(), **optim_params)
+        # Load existing optimizer
         if optim_state:
             self.optimizer.load_state_dict(optim_state)
         
         # Define Scheduler
-        if warmup_epochs and epoch_start < warmup_epochs:
-            self.scheduler = lr_scheduler.LambdaLR(self.optimizer,
-                                                   lambda it: (it+1)/(warmup_epochs*self._train_len))
-            self._iter_scheduler = True
-        else:
-            if scheduler:
-                self.scheduler = scheduler(self.optimizer, **scheduler_params)
-                self._iter_scheduler = iter_scheduler
-            else: # scheduler = None 
-                self.scheduler = scheduler
-        # Load existing scheduler
-        if self.scheduler and sched_state:
-            self.scheduler.load_state_dict(sched_state)
-        
+        if scheduler:
+            self.scheduler = scheduler(self.optimizer, **scheduler_params)
+            self._iter_scheduler = iter_scheduler
+            # Load existing scheduler
+            if sched_state:
+                self.scheduler.load_state_dict(sched_state
+        else: # scheduler = None
+            self.scheduler = scheduler
+
         # Run Training
         for epoch in range(epoch_start, num_epochs):
             self._epoch_loss = 0
@@ -110,14 +106,6 @@ class SSL_Trainer(object):
             if self.scheduler and not self._iter_scheduler:
                 # Scheduler only every epoch
                 self.scheduler.step()
-            
-            # Switch to new schedule after warmup period
-            if warmup_epochs and epoch+1==warmup_epochs:
-                if scheduler:
-                    self.scheduler = scheduler(self.optimizer, **scheduler_params)
-                    self._iter_scheduler = iter_scheduler
-                else: # scheduler = None 
-                    self.scheduler = scheduler
     
             # Log
             self.loss_hist.append(self._epoch_loss/self._train_len)
