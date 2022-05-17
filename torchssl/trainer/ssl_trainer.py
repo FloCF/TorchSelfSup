@@ -92,9 +92,9 @@ class SSL_Trainer(object):
             self._iter_scheduler = iter_scheduler
             # Load existing scheduler
             if sched_state:
-                self.scheduler.load_state_dict(sched_state
-        else: # scheduler = None
-            self.scheduler = scheduler
+                self.scheduler.load_state_dict(sched_state)
+        else: # (i.e. scheduler = None)
+            self.scheduler = None
 
         # Run Training
         for epoch in range(epoch_start, num_epochs):
