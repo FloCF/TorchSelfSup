@@ -2,7 +2,6 @@
 __pycache__
 results/*
 !results/README.md
-!results/.gitkeep
 data/*
 !data/.gitkeep
 SSL_pytorch.egg-info/*
