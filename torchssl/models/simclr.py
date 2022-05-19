@@ -16,7 +16,6 @@ class SimCLR(nn.Module):
                  direct_dim: Optional[int] = None):
         super().__init__()
         
-        if direct
         # DirectCLR appoach from https://arxiv.org/abs/2110.09348 (default 360 for ResNet50)
         self.direct_dim = int(direct_dim) if direct_dim else None
         self.nt_xent_loss = NTXentLoss(temperature)
