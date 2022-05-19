@@ -1,0 +1,1 @@
+Checkmarks for CIFAR10 can be downloaded from [here](https://drive.google.com/drive/folders/1e4EWQ6sbPqSuC7bx8rR6LgZMlhsKvAEw?usp=sharing).

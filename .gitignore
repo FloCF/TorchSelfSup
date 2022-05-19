@@ -1,6 +1,7 @@
 .ipynb_checkpoints
 __pycache__
 results/*
+!results/README.md
 !results/.gitkeep
 data/*
 !data/.gitkeep
