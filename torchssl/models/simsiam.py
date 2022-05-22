@@ -7,14 +7,14 @@ import torch.nn.functional as F
 from .utils import MLP
 
 class SimSiam(nn.Module):
-    def __init__(self, backbone_net: nn.Module,
+    def __init__(self,
+                 backbone_net: nn.Module, repre_dim: int,
                  projector_hidden: Union[int, tuple] = (2048, 2048, 2048),
                  predictor_hidden: Optional[Union[int, tuple]] = (512, 2048)):
         super().__init__()
         
         self.backbone_net = backbone_net
-        self.repre_dim = self.backbone_net.fc.in_features
-        backbone_net.fc = nn.Identity()
+        self.repre_dim = repre_dim
         
         # Define projector
         self.projector = MLP(self.repre_dim, projector_hidden, batchnorm_last = True)

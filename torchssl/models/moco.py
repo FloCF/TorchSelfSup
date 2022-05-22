@@ -11,18 +11,18 @@ from torchssl.losses import NTXentLoss
 from .utils import MLP
 
 class MoCo(nn.Module):
-    def __init__(self, backbone_net: nn.Module,
+    def __init__(self,
+                 backbone_net: nn.Module, repre_dim: int,
                  projector_hidden: Union[int, tuple] = (2048, 128),
                  predictor_hidden: Optional[Union[int, tuple]] = None,
                  temperature: float = 0.2,
                  memory_bank_size: int = 65536):
         super().__init__()
         
-        self.nt_xent_loss = NTXentLoss(temperature, memory_bank_size)
-        
         self.backbone_net = backbone_net
-        self.repre_dim = self.backbone_net.fc.in_features
-        backbone_net.fc = nn.Identity()
+        self.repre_dim = repre_dim
+        
+        self.nt_xent_loss = NTXentLoss(temperature, memory_bank_size)
         
         # Define projector and init memory bank
         if projector_hidden:

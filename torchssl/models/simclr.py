@@ -10,19 +10,19 @@ from torchssl.losses import NTXentLoss
 from .utils import MLP
 
 class SimCLR(nn.Module):
-    def __init__(self, backbone_net: nn.Module,
+    def __init__(self,
+                 backbone_net: nn.Module, repre_dim: int,
                  projector_hidden: Union[int, tuple] = (2048, 2048, 256),
                  temperature: float = 0.2,
                  direct_dim: Optional[int] = None):
         super().__init__()
         
+        self.backbone_net = backbone_net
+        self.repre_dim = repre_dim
+        
         # DirectCLR appoach from https://arxiv.org/abs/2110.09348 (default 360 for ResNet50)
         self.direct_dim = int(direct_dim) if direct_dim else None
         self.nt_xent_loss = NTXentLoss(temperature)
-        
-        self.backbone_net = backbone_net
-        self.repre_dim = self.backbone_net.fc.in_features
-        backbone_net.fc = nn.Identity()
         
         # Define projector and init memory bank
         if projector_hidden:

@@ -9,16 +9,16 @@ class BarlowTwins(nn.Module):
     """
     Code from https://github.com/facebookresearch/barlowtwins
     """
-    def __init__(self, backbone_net,
+    def __init__(self,
+                 backbone_net: nn.Module, repre_dim: int,
                  projector_hidden: Union[int, tuple] = (8192,8192,8192),
                  λ: float = 0.0051):
         super().__init__()
         
-        self.lambd = λ
-        
         self.backbone_net = backbone_net
-        self.repre_dim = self.backbone_net.fc.in_features
-        backbone_net.fc = nn.Identity()
+        self.repre_dim = repre_dim
+        
+        self.lambd = λ
         
         self.projector = MLP(self.repre_dim, projector_hidden, bias = False)
 
