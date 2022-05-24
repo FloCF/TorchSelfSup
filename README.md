@@ -4,8 +4,8 @@
 
 For installing the package you need to clone repo and install it via:
 ```
-git clone https://github.com/FloCF/SSL_pytorch.git
-pip install SSL_pytorch
+git clone https://github.com/FloCF/TorchSelfSup.git
+pip install TorchSelfSup
 ```
 This will call the setup-script and install all the necessary packages.
 
