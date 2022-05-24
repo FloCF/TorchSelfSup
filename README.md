@@ -4,8 +4,7 @@
 
 For installing the package you need to clone repo and install it via:
 ```
-git clone https://github.com/FloCF/TorchSelfSup.git
-pip install TorchSelfSup
+pip install "git+https://github.com/FloCF/TorchSelfSup"
 ```
 This will call the setup-script and install all the necessary packages.
 

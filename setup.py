@@ -5,7 +5,7 @@ setup(
     packages=find_packages(exclude=['examples']),
     version='0.0.1',
     license='MIT',
-    description = 'SSL_pytorch - PyTorch implementation of different SSL Methods',
+    description = 'TorchSelfSup - PyTorch implementation of different Self-Supervised Learning Methods',
     author='Florian C.F. Schulz',
     author_email = 'floriancf.schulz@gmail.com',
     url = 'https://github.com/FloCF/TorchSelfSup',
