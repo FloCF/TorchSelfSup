@@ -1,35 +1,48 @@
+from typing import List, Optional
+
 import torchvision.transforms as T
 
-IMAGENET_NORM = [[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
 
-# SimCLR Transformations
-def simclr_transforms(image_size: int, jitter: tuple = (0.4, 0.4, 0.2, 0.1),
-                      p_blur: float = 1.0, p_solarize: float = 0.0,
-                      normalize: list = IMAGENET_NORM):
+# Flexibel SSL transformations function
+def ssl_transforms(image_size: int, jitter: tuple = (0.4, 0.4, 0.2, 0.1),
+                   p_gray: float = 0.2, p_blur: float = 1.0,
+                   p_solarize: float = 0.0, normalize: Optional[List] = None):
     
+    # Basic Vision Augmentations
     trans_list = [T.RandomResizedCrop(image_size),
                   T.RandomHorizontalFlip(),
                   T.RandomApply([T.ColorJitter(*jitter)], p=0.8),
-                  T.RandomGrayscale(p=0.2)]
+                 ]
     
-    # Turn off blur for small images
+    # Add random grayscale
+    if p_gray>0.0:
+        trans_list.append(T.RandomGrayscale(p=p_gray))
+        
+    # Gaussian blur
+    ## Turn off blur for small images
     if image_size<=32:
         p_blur = 0.0
-    # Add Gaussian blur
+    ## Add Gaussian blur
     if p_blur==1.0:
         trans_list.append(T.GaussianBlur(image_size//20*2+1))
     elif p_blur>0.0:
         trans_list.append(T.RandomApply([T.GaussianBlur(image_size//20*2+1)], p=p_blur))
+    
     # Add RandomSolarize
     if p_solarize>0.0:
         trans_list.append(T.RandomSolarize(0.5, p=p_solarize))
     
-    trans_list.extend([T.ToTensor(), T.Normalize(*normalize)])
+    # Transform to torch.Tensor
+    trans_list.append(T.ToTensor())
+    
+    # Normalize data
+    if normalize:
+        trans_list.append(T.Normalize(*normalize))
     
     return T.Compose(trans_list)
 
 
-# A wrapper that performs returns two augmented images
+# A wrapper that returns two augmented images
 class TwoTransform(object):
     """Applies data augmentation two times."""
 
