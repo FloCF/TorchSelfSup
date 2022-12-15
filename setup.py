@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='TorchSelfSup',
-    packages=find_packages(exclude=['examples']),
+    packages=find_packages(exclude=['data', 'examples', 'results']),
     version='0.0.1',
     license='MIT',
     description = 'TorchSelfSup - PyTorch implementation of different Self-Supervised Learning Methods',
