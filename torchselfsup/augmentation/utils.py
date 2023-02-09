@@ -20,7 +20,7 @@ def ssl_transforms(image_size: int, jitter: tuple = (0.4, 0.4, 0.2, 0.1),
         
     # Gaussian blur
     ## Turn off blur for small images
-    if image_size<=32:
+    if min((image_size,) if isinstance(image_size, int) else image_size)<=32:
         p_blur = 0.0
     ## Add Gaussian blur
     if p_blur==1.0:
